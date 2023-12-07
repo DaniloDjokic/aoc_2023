@@ -1,16 +1,16 @@
-use std::{io::{BufReader, BufRead}, fs::File};
+use std::{io::{BufReader, BufRead}, fs::File, collections::HashMap};
 
 #[derive(Debug)]
 struct Game {
     pub id: u32,
-    pub cubes: Vec<Cube>,
+    pub cubes: HashMap<Cube, u32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum Cube {
-    Red(u32),
-    Green(u32),
-    Blue(u32),
+    Red,
+    Green,
+    Blue,
 }
 
 fn main() {
@@ -19,12 +19,10 @@ fn main() {
 
     let games = parse_file(reader);
     let value = games.iter().fold(0, |acc, g| {
-        acc + g.id
+        acc + g.cubes.iter().fold(1, |acc, c| {
+            acc * *c.1
+        })
     });
-
-    for game in games {
-        println!("{:?}", game);
-    }
 
     println!("The value is {}", value);
 }
@@ -36,21 +34,10 @@ fn parse_file(reader: BufReader<File>) -> Vec<Game> {
         match line {
             Ok(line) => {
                 let game = parse_game(&line);
-
-                if !game.cubes
-                    .iter()
-                    .any(|c| {
-                        match c {
-                            Cube::Red(v) => *v > 12,
-                            Cube::Green(v) => *v > 13,
-                            Cube::Blue(v) => *v > 14
-                        }  
-                    }) {
-                        games.push(game);
-                    }
+                games.push(game);
             },
             Err(e) => {
-                eprintln!("Cannot read line");
+                eprintln!("Cannot read line, {}", e);
             }
         }
     }
@@ -69,7 +56,11 @@ fn parse_game(line: &str) -> Game {
 
     let mut game = Game {
         id: game_id,
-        cubes: vec![],
+        cubes: HashMap::from([
+            (Cube::Red, 0),
+            (Cube::Green, 0),
+            (Cube::Blue, 0)
+        ]),
     };
 
     for game_str in game_strings {
@@ -85,14 +76,18 @@ fn parse_game(line: &str) -> Game {
 
             let cube_color = &cube_str.trim()[whitespace_idx+1..];
 
-            let cube = match cube_color {
-                "blue" => Cube::Blue(*cube_count),
-                "red" => Cube::Red(*cube_count),
-                "green" => Cube::Green(*cube_count),
+            let new_cube = match cube_color {
+                "blue" => Cube::Blue,
+                "red" => Cube::Red,
+                "green" => Cube::Green,
                 _ => panic!("Cannot parse cube {}", cube_str)
             };
 
-            game.cubes.push(cube);
+            let current_count = game.cubes.get(&new_cube).unwrap();
+
+            if cube_count > current_count {
+                game.cubes.insert(new_cube, *cube_count);
+            }
         }
     }
 
