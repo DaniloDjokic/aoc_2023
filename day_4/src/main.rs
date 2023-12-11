@@ -1,25 +1,22 @@
 use std::{fs::File, io::{BufReader, BufRead}, collections::HashSet};
 
+#[derive(Clone, Debug)]
 struct Card {
     id: u32,
     winning: HashSet<u32>,
     current: HashSet<u32>,
+    copy_count: u32,
 }
 
 impl Card {
-    fn get_value(&self) -> u32 {
+    fn get_winnings(&self) -> usize {
         let common = self.winning.intersection(&self.current);
 
-        let count = common.into_iter().count();
-
-        match count {
-            0 => 0,
-            _ => 2_u32.pow((count - 1) as u32)
-        }
+        common.into_iter().count()
     }
 
     fn new() -> Self {
-        Self { id: 0, winning: HashSet::new(), current: HashSet::new() }
+        Self { id: 0, winning: HashSet::new(), current: HashSet::new(), copy_count: 1 }
     }
 }
 
@@ -27,17 +24,41 @@ fn main() {
     let file = File::open("input.txt").expect("Cannot open file");
     let reader = BufReader::new(file);
 
-    let cards = parse_file(reader);
+    let mut cards = parse_file(reader);
+    cards = append_cards(cards);
 
     for i in 0..cards.len() {
-        println!("Card: {}, Value: {}", cards[i].id, cards[i].get_value());
+       // println!("Card: {}, copies {}", cards[i].id, cards[i].copy_count);
     }
 
-    let value = cards.iter().fold(0, |acc, c| {
-        acc + c.get_value()
-    });
+    println!("Total length: {}", cards.iter().fold(0, |acc, c| {
+        acc + c.copy_count
+    }));
+}
 
-    println!("The value is: {}", value);
+fn append_cards(mut cards: Vec<Card>) -> Vec<Card> {
+    let starting_len = cards.len();
+    let mut copies: Vec<Card> = vec![];
+
+    for i in 0..cards.len()  {
+        for _j in 0..cards[i].copy_count {
+            let current_card = &cards[i];
+            let win_val = current_card.get_winnings();
+
+            let bound = if i + win_val > starting_len {starting_len} else {i + win_val};
+
+            let to_copy = &mut cards[i+1..=bound];
+
+            for copy in to_copy {
+             //   println!("Updating: {}", copy.id);
+                copy.copy_count += 1;
+            } 
+        }
+    }
+    
+    cards.append(&mut copies);
+
+    cards
 }
 
 fn parse_file(reader: BufReader<File>) -> Vec<Card> {
