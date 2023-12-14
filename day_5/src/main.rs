@@ -15,10 +15,55 @@ impl Map {
     fn source_bound(&self) -> u64 {
         self.source + self.len
     }
+
+    fn dest_bound(&self) -> u64 {
+        self.dest + self.len
+    }
+}
+
+fn map_map(source_maps: &Vec<Map>, dest_maps: &Vec<Map>) -> Vec<Map> {
+    let mut new_maps = vec![];
+
+    for source_map in source_maps {
+        let source_dest = (source_map.dest, source_map.dest_bound());
+
+        for dest_map in dest_maps {
+            let dest_source = (dest_map.source, dest_map.source_bound());
+
+            if let Some(overlap_bounds) = cross_bounds(source_dest, dest_source) {
+                if overlap_bounds.0 == overlap_bounds.1 {
+                    continue;
+                } 
+
+                let mut new_map = Map::new();
+
+                new_map.source = overlap_bounds.0;
+                new_map.len = overlap_bounds.1 - overlap_bounds.0;
+                new_map.dest = dest_map.dest;
+
+                //println!("{:?}", new_map);
+
+                new_maps.push(new_map);
+            }
+        }
+    }
+
+    new_maps
+}
+
+fn cross_bounds(source: (u64, u64), dest: (u64, u64)) -> Option<(u64, u64)> {
+    let start = source.0.max(dest.0);
+    let end = source.1.min(dest.1);
+
+    if start <= end {
+        Some((start, end))
+    } else {
+        None 
+    }
 }
 
 fn main() {
-    let file = File::open("input.txt").expect("Cannot open file");
+    let file = File::open("test.txt").expect("Cannot open file");
     let reader = BufReader::new(file);
 
     parse_file(reader);
@@ -36,7 +81,9 @@ fn parse_file(reader: BufReader<File>) {
             Err(_) => None
         });
 
-    let seeds: Vec<u64> = lines.next()
+    let mut seeds: Vec<u64> = vec![];
+
+    let seeds_line: Vec<u64> = lines.next()
         .unwrap()
         .split(": ")
         .skip(1)
@@ -46,19 +93,31 @@ fn parse_file(reader: BufReader<File>) {
         .map(|n| n.parse::<u64>().unwrap())
         .collect();
 
-    let mut maps = parse_map(lines);
+    for chunk in seeds_line.chunks(2) {
+        let range = chunk[0] + chunk[1];
+        for i in chunk[0]..range {
+            seeds.push(i);
+        }
+    }
 
-    let soil = create_target(seeds, &mut maps.get_mut("seed-to-soil").unwrap());
-    let fert = create_target(soil, &mut maps.get_mut("soil-to-fertilizer").unwrap());
-    let water = create_target(fert, &mut maps.get_mut("fertilizer-to-water").unwrap());
-    let light = create_target(water, &mut maps.get_mut("water-to-light").unwrap());
-    let temp = create_target(light, &mut maps.get_mut("light-to-temperature").unwrap());
-    let hum = create_target(temp, &mut maps.get_mut("temperature-to-humidity").unwrap());
-    let mut loc = create_target(hum, &mut maps.get_mut("humidity-to-location").unwrap());
+    let maps = parse_map(lines);
 
-    loc.sort();
+    let seed_fert = map_map(maps.get("seed-to-soil").unwrap(), maps.get("soil-to-fertilizer").unwrap());
+    let seed_water = map_map(&seed_fert, maps.get("fertilizer-to-water").unwrap());
+    let seed_light = map_map(&seed_water, maps.get("water-to-light").unwrap());
+    let seed_temp = map_map(&seed_light, maps.get("light-to-temperature").unwrap());
+    let seed_hum = map_map(&seed_temp, maps.get("temperature-to-humidity").unwrap());
+    let mut seed_loc = map_map(&seed_hum, maps.get("humidity-to-location").unwrap());
+   
+    println!("Seed to fert {:?}", seed_fert);
+    println!("Seed to water {:?}", seed_water);
+    println!("Seed to light {:?}", seed_light);
 
-    println!("Lowest is {}", loc.first().unwrap());
+
+    //let mut target = create_target(seeds, &mut seed_loc);
+    //target.sort();
+
+   // println!("Lowest is {}", target.first().unwrap());
 }
 
 fn parse_map<I>(lines: I) -> HashMap<String, Vec<Map>>
