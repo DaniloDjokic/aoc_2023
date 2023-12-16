@@ -1,13 +1,14 @@
 use std::{fs::File, io::{BufReader, BufRead, Lines}, collections::HashMap};
 
 fn main() {
-    let file = File::open("test.txt").expect("Cannot open file");
+    let file = File::open("input.txt").expect("Cannot open file");
     let reader = BufReader::new(file);
 
-    parse_file(reader);
+    let steps = parse_file(reader);
+    println!("Steps: {}", steps);
 }
 
-fn parse_file(reader: BufReader<File>) {
+fn parse_file(reader: BufReader<File>) -> u32 {
     let mut lines = reader.lines();
 
     let directions = lines.next().unwrap().unwrap();
@@ -15,11 +16,32 @@ fn parse_file(reader: BufReader<File>) {
 
     println!("Dirs: {}", directions);
 
-    parse_map(lines);
+    let map = parse_map(lines);
+
+    let mut curr = "AAA";
+    let mut steps = 0;
+
+    for dir in directions.chars().cycle() {
+        if curr == "ZZZ" {
+            return steps;
+        }
+
+        steps += 1;
+
+        let val = map.get(curr).unwrap();
+
+        match dir {
+            'L' => curr = &val.0,
+            'R' => curr = &val.1,
+            _ => panic!("Not L or R")
+        }
+    }
+
+    panic!("How did we end a cycle?")
 }
 
-fn parse_map(lines: Lines<BufReader<File>>) -> HashMap<String, (Option<&'static str>, Option<&'static str>)> {
-    let mut map: HashMap<String, (Option<&str>, Option<&str>)> = HashMap::new();
+fn parse_map(lines: Lines<BufReader<File>>) -> HashMap<String, (String, String)> {
+    let mut map: HashMap<String, (String, String)> = HashMap::new();
 
     for line in lines {
         let line = line.unwrap();
@@ -34,26 +56,8 @@ fn parse_map(lines: Lines<BufReader<File>>) -> HashMap<String, (Option<&'static 
             .map(|s| s.trim())
             .collect();
 
-        fill_missing_source(&mut map, &edges, 0);
-        fill_missing_source(&mut map, &edges, 1);
-        fill_edges(&mut map, &edges, source.to_owned());
-
-       // println!("Source: {}, edges: {:?}", source, edges);
+        map.insert(source.to_owned(), (edges[0].to_owned(), edges[1].to_owned()));
     }
 
     map
-}
-
-fn fill_edges<'a>(map: &'a mut HashMap<String, (Option<&'a str>, Option<&'a str>)>, edges: &Vec<&'a str>, source: String) {
-    let (k_1, _) = map.get_key_value(edges[0]).unwrap();
-    let (k_2, _) = map.get_key_value(edges[1]).unwrap();
-
-    map.entry(source.clone()).or_insert_with(|| (Some(k_1), Some(k_2)));
-}
-
-
-fn fill_missing_source(map: &mut HashMap<String, (Option<&str>, Option<&str>)>, edges: &Vec<&str>, i: usize) {
-    if !map.contains_key(edges[i]) {
-        map.insert(edges[i].to_owned(), (None, None)).unwrap();
-    }
 }
