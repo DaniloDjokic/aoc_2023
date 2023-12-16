@@ -6,7 +6,7 @@ use std::{cmp::Ordering, collections::HashMap};
 pub struct Hand<'a> {
     pub card_line: String,
     pub bid: u64,
-    rank: Rank,
+    pub rank: Rank,
     cmp_map: &'a HashMap<char, u32>,
 }
 

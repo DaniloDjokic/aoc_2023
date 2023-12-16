@@ -11,20 +11,38 @@ pub enum Rank {
 impl From<&str> for Rank {
     fn from(value: &str) -> Self {
         let mut map: HashMap<char, usize> = HashMap::new();
+        let mut j_count = 0;
 
         for char in value.chars() {
+            if char == 'J' {
+                j_count += 1;
+            }
+
             match map.get_mut(&char) {
-                Some(count) => *count += 1,
+                Some(count) => {
+                    *count += 1
+                },
                 None => _ = map.insert(char, 1)
             }
         }
 
-        let mut vals: Vec<usize> = map.values().map(|k| *k).collect();
+        let mut vals: Vec<usize> = map.iter() 
+            .filter_map(|(k, v)| match k {
+                'J' => None,
+                _ => Some(*v)
+            })
+            .collect();
+
 
         vals.sort();
         vals.reverse();
 
-       // println!("Card: {}, keys: {:?}", value, vals);
+        //println!("Card: {}, vals before inc: {:?}", value, vals);
+
+        match vals.first_mut() {
+            Some(first) => *first += j_count,
+            None => return Rank::Kind(5)
+        }
 
         return match &vals[0] {
             5 => Rank::Kind(5),
