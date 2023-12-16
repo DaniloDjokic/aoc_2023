@@ -1,7 +1,46 @@
 use std::{fs::File, io::{BufReader, BufRead, Lines}, collections::HashMap};
 
+#[derive(Debug, Clone)]
+struct Node {
+    pub left: String,
+    pub right: String,
+    pub next_z: Option<String>,
+    pub steps_to: Option<u32>
+}
+
+impl Node {
+    fn new(left: String, right: String) -> Self {
+        Self { left, right, next_z: None, steps_to: None }
+    }
+
+    fn set_next_z(&mut self, name: String, map: &HashMap<String, Node>, dir: &String) {
+        let mut steps_to: u32 = 0;
+        let mut next_z: String = name.clone();
+
+        for dir in dir.chars().cycle() {
+            if next_z.ends_with('Z') {
+                break;
+            }
+
+            steps_to += 1;
+            let val = map.get(&next_z).unwrap();
+
+            match dir {
+                'L' => next_z = val.left.clone(),
+                'R' => next_z = val.right.clone(),
+                _ => panic!("Not L or R")
+            }
+        }
+
+        println!("For: {}, found: {}", name, next_z);
+
+        self.next_z = Some(next_z);
+        self.steps_to = Some(steps_to);
+    }
+}
+
 fn main() {
-    let file = File::open("input.txt").expect("Cannot open file");
+    let file = File::open("test.txt").expect("Cannot open file");
     let reader = BufReader::new(file);
 
     let steps = parse_file(reader);
@@ -11,37 +50,23 @@ fn main() {
 fn parse_file(reader: BufReader<File>) -> u32 {
     let mut lines = reader.lines();
 
-    let directions = lines.next().unwrap().unwrap();
+    let dir = lines.next().unwrap().unwrap();
     lines.next();
 
-    println!("Dirs: {}", directions);
+    let mut map = parse_map(lines);
+    let clone = map.clone();
 
-    let map = parse_map(lines);
-
-    let mut curr = "AAA";
-    let mut steps = 0;
-
-    for dir in directions.chars().cycle() {
-        if curr == "ZZZ" {
-            return steps;
-        }
-
-        steps += 1;
-
-        let val = map.get(curr).unwrap();
-
-        match dir {
-            'L' => curr = &val.0,
-            'R' => curr = &val.1,
-            _ => panic!("Not L or R")
-        }
+    for (key, val) in map.iter_mut() {
+        val.set_next_z(key.clone(), &clone, &dir);
     }
 
-    panic!("How did we end a cycle?")
+    
+
+    0
 }
 
-fn parse_map(lines: Lines<BufReader<File>>) -> HashMap<String, (String, String)> {
-    let mut map: HashMap<String, (String, String)> = HashMap::new();
+fn parse_map(lines: Lines<BufReader<File>>) -> HashMap<String, Node> {
+    let mut map: HashMap<String, Node> = HashMap::new();
 
     for line in lines {
         let line = line.unwrap();
@@ -56,7 +81,8 @@ fn parse_map(lines: Lines<BufReader<File>>) -> HashMap<String, (String, String)>
             .map(|s| s.trim())
             .collect();
 
-        map.insert(source.to_owned(), (edges[0].to_owned(), edges[1].to_owned()));
+        let node = Node::new(edges[0].to_owned(), edges[1].to_owned());
+        map.insert(source.to_owned(), node);
     }
 
     map
