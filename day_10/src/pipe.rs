@@ -42,7 +42,7 @@ impl Dir for Vec<Vec<MapElement>> {
 pub struct MapElement {
     pub point: Point,
     pub char: char,
-    el_type: ElementType,
+    pub el_type: ElementType,
 }
 
 impl MapElement {

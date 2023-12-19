@@ -13,45 +13,59 @@ fn main() {
 
     let (map, start) = parse_file(reader, is_test_input);
 
-    let num: u128 = 100_000_000_000;
+    let num: u128 = 30000;
 
     let _ = thread::Builder::new().stack_size(num as usize * 0xFF).spawn(move || {
         let mut visited: HashSet<Point> = HashSet::new();
+        let mut angles = vec![start.clone()];
 
-        let count = walk_map(&map, &start, &mut visited);
+        let count = walk_map(&map, &start, &mut visited, &mut angles);
 
+      //  println!("Angles: {:?}", angles);
         println!("Steps: {}", count / 2);
     }).unwrap().join();    
 }
 
-fn walk_map(map: &Vec<Vec<MapElement>>, curr: &Point, visited: &mut HashSet<Point>) -> usize {   
-    if visited.contains(curr) {
-        return visited.iter().count();
-    }
-    
+fn walk_map(map: &Vec<Vec<MapElement>>, curr: &Point, visited: &mut HashSet<Point>, all_angles: &mut Vec<Point>) -> usize {       
     visited.insert(curr.clone());
 
-    let els = check_adj(map, &curr, visited);
+    let (els, angles) = check_adj(map, &curr, visited);
 
-    println!("Adjacent to {:?} are {:?}", curr, els.iter().map(|e| &e.point).collect::<Vec<_>>());
-
-    for el in els {
-        return walk_map(map, &el.point, visited);
+    if !angles.is_empty() {
+        for angle in angles {
+            all_angles.push(angle);
+        }
     }
 
-    visited.iter().count()
+    //println!("Adjacent to {:?} are {:?}", curr, els.iter().map(|e| &e.point).collect::<Vec<_>>());
+
+    let first = &els.first();
+
+    return match first {
+        Some(first) => walk_map(map, &first.point, visited, all_angles),
+        None => visited.iter().count()
+    }
 }
 
-fn check_adj<'a>(map: &'a Vec<Vec<MapElement>>, curr: &Point, visited: &HashSet<Point>) -> Vec<&'a MapElement> {
+fn check_adj<'a>(map: &'a Vec<Vec<MapElement>>, curr: &Point, visited: &HashSet<Point>) -> (Vec<&'a MapElement>, Vec<Point>) {
     let mut points = vec![];
+    let mut angles = vec![];
     let curr = &map[curr.0][curr.1];
 
-    push_point(map, pipe::MapDirection::Up, curr, &mut points, visited);
-    push_point(map, pipe::MapDirection::Down, curr, &mut points, visited);
-    push_point(map, pipe::MapDirection::Left, curr, &mut points, visited);
-    push_point(map, pipe::MapDirection::Right, curr, &mut points, visited);
+    if let Some(angle) = push_point(map, pipe::MapDirection::Up, curr, &mut points, visited) {
+        angles.push(angle);
+    }
+    if let Some(angle) = push_point(map, pipe::MapDirection::Down, curr, &mut points, visited){
+        angles.push(angle);
+    }
+    if let Some(angle) = push_point(map, pipe::MapDirection::Left, curr, &mut points, visited){
+        angles.push(angle);
+    }
+    if let Some(angle) = push_point(map, pipe::MapDirection::Right, curr, &mut points, visited){
+        angles.push(angle);
+    }
 
-    points
+    (points, angles)
 }
 
 fn push_point<'a>
@@ -59,15 +73,24 @@ fn push_point<'a>
     map: &'a Vec<Vec<MapElement>>,
     dir: pipe::MapDirection,
     curr: &MapElement,
-    points: &mut Vec<&'a MapElement>,
+    map_elements: &mut Vec<&'a MapElement>,
     visited: &HashSet<Point>
-) 
+) -> Option<Point>
 {
-    if let Some(point) = map.map_move(dir, curr) {
-        if !visited.contains(&point.point) {
-            points.push(point);
+    if let Some(map_elemnt) = map.map_move(dir, curr) {
+        if !visited.contains(&map_elemnt.point) {
+            map_elements.push(map_elemnt);
+
+            match map_elemnt.el_type {
+                ElementType::BendPipe(_) => {
+                    return Some(map_elemnt.point.clone());
+                },
+                _ => return None
+            }
         }
     }
+
+    None
 }
 
 fn parse_file(reader: BufReader<File>, is_test_input: bool) -> (Vec<Vec<MapElement>>, Point) {
