@@ -1,0 +1,101 @@
+use std::{fs::File, io::{BufReader, BufRead }, collections::HashSet, thread};
+
+mod pipe;
+use pipe::{Point, Dir, ElementType};
+use pipe::MapElement;
+
+fn main() {
+    let file_name = "input.txt";
+    let is_test_input = file_name == "test.txt";
+
+    let file = File::open(file_name).expect("Cannot open file");
+    let reader = BufReader::new(file);
+
+    let (map, start) = parse_file(reader, is_test_input);
+
+    let num: u128 = 100_000_000_000;
+
+    let _ = thread::Builder::new().stack_size(num as usize * 0xFF).spawn(move || {
+        let mut visited: HashSet<Point> = HashSet::new();
+
+        let count = walk_map(&map, &start, &mut visited);
+
+        println!("Steps: {}", count / 2);
+    }).unwrap().join();    
+}
+
+fn walk_map(map: &Vec<Vec<MapElement>>, curr: &Point, visited: &mut HashSet<Point>) -> usize {   
+    if visited.contains(curr) {
+        return visited.iter().count();
+    }
+    
+    visited.insert(curr.clone());
+
+    let els = check_adj(map, &curr, visited);
+
+    println!("Adjacent to {:?} are {:?}", curr, els.iter().map(|e| &e.point).collect::<Vec<_>>());
+
+    for el in els {
+        return walk_map(map, &el.point, visited);
+    }
+
+    visited.iter().count()
+}
+
+fn check_adj<'a>(map: &'a Vec<Vec<MapElement>>, curr: &Point, visited: &HashSet<Point>) -> Vec<&'a MapElement> {
+    let mut points = vec![];
+    let curr = &map[curr.0][curr.1];
+
+    push_point(map, pipe::MapDirection::Up, curr, &mut points, visited);
+    push_point(map, pipe::MapDirection::Down, curr, &mut points, visited);
+    push_point(map, pipe::MapDirection::Left, curr, &mut points, visited);
+    push_point(map, pipe::MapDirection::Right, curr, &mut points, visited);
+
+    points
+}
+
+fn push_point<'a>
+(
+    map: &'a Vec<Vec<MapElement>>,
+    dir: pipe::MapDirection,
+    curr: &MapElement,
+    points: &mut Vec<&'a MapElement>,
+    visited: &HashSet<Point>
+) 
+{
+    if let Some(point) = map.map_move(dir, curr) {
+        if !visited.contains(&point.point) {
+            points.push(point);
+        }
+    }
+}
+
+fn parse_file(reader: BufReader<File>, is_test_input: bool) -> (Vec<Vec<MapElement>>, Point) {
+    let mut map = vec![];
+    let mut start = Point(0, 0);
+
+    for (i, line) in reader.lines().map(|l| l.unwrap()).enumerate() {
+        let mut row = vec![];
+        
+        for (j, char) in line.chars().enumerate() {
+            if char == 'S' {
+                let el_type = if is_test_input {
+                    ElementType::BendPipe(pipe::PipeDir::SouthEast)
+                }
+                else {
+                    ElementType::BendPipe(pipe::PipeDir::NorthEast)
+                };
+
+                row.push(MapElement::new_start(i, j, 'S', el_type));
+                start = Point(i, j);
+            }
+            else {
+                row.push(MapElement::new(i, j, char));
+            }
+        }
+
+        map.push(row);
+    }
+
+    (map, start)
+}
