@@ -33,14 +33,14 @@ impl Dir for Vec<Vec<MapElement>> {
                 }
             }
             MapDirection::Right => {
-                if point.1 == self.len() - 1 {
+                if point.1 == self[point.0].len() - 1 {
                     None
                 } else {
                     Some(&self[point.0][point.1 + 1])
                 }
             }
             MapDirection::Down => {
-                if point.0 == self[point.0].len() - 1 {
+                if point.0 == self.len() - 1 {
                     None
                 } else {
                     Some(&self[point.0 + 1][point.1])

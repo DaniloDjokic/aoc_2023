@@ -2,6 +2,8 @@ use crate::pipe::{MapElement, Point, MapDirection, PipeDir};
 use queues::*;
 use crate::pipe::ElementType;
 
+#[allow(unused)]
+
 pub fn split_islands(map: &mut Vec<Vec<MapElement>>) -> Vec<Vec<Point>> {
     let mut islands = vec![];
 

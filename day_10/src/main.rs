@@ -5,19 +5,20 @@ use std::{
     thread,
 };
 
+mod raycast;
 mod islands;
 mod pipe;
 use pipe::MapElement;
 use pipe::{Dir, ElementType, Point};
 
 fn main() {
-    let file_name = "test.txt";
+    let file_name = "input.txt";
     let is_test_input = file_name == "test.txt";
 
     let file = File::open(file_name).expect("Cannot open file");
     let reader = BufReader::new(file);
 
-    let (mut map, start) = parse_file(reader, is_test_input);
+    let (map, start) = parse_file(reader, is_test_input);
 
     let num: u128 = 30000;
 
@@ -27,16 +28,22 @@ fn main() {
             let mut pipe_loop: HashSet<Point> = HashSet::new();
             _ = walk_map(&map, &start, &mut pipe_loop);
 
-            let mut islands = islands::split_islands(&mut map);
+            for row in map.iter() {
+                for el in row.iter() {
+                    if pipe_loop.contains(&el.point) {
+                        print!("{}", el.char);
+                    }
+                    else {
+                        print!(".");
+                    }
+                }
 
-            println!("Total islands, {}", islands.len());
-
-            islands.sort_by(|x,y| x.len().cmp(&y.len()));
-
-            for i in islands.iter() {
-                println!("Island count: {}", i.len());
-                println!(" ");
+                println!("");
             }
+
+            let inside = raycast::raycast_map(map, pipe_loop);
+
+            println!("Inside: {}", inside.len());
         })
         .unwrap()
         .join()
@@ -47,8 +54,6 @@ fn walk_map(map: &Vec<Vec<MapElement>>, curr: &Point, visited: &mut HashSet<Poin
     visited.insert(curr.clone());
 
     let els = check_adj(map, &curr, visited);
-
-    //println!("Adjacent to {:?} are {:?}", curr, els.iter().map(|e| &e.point).collect::<Vec<_>>());
 
     let first = &els.first();
 
@@ -107,7 +112,7 @@ fn parse_file(reader: BufReader<File>, is_test_input: bool) -> (Vec<Vec<MapEleme
         for (j, char) in line.chars().enumerate() {
             if char == 'S' {
                 let el_type = if is_test_input {
-                    ElementType::BendPipe(pipe::PipeDir::SouthEast)
+                    ElementType::BendPipe(pipe::PipeDir::SouthWest)
                 } else {
                     ElementType::BendPipe(pipe::PipeDir::NorthEast)
                 };
