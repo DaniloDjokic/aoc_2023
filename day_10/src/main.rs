@@ -27,10 +27,14 @@ fn main() {
             let mut pipe_loop: HashSet<Point> = HashSet::new();
             _ = walk_map(&map, &start, &mut pipe_loop);
 
-            let islands = islands::split_islands(&mut map);
+            let mut islands = islands::split_islands(&mut map);
+
+            println!("Total islands, {}", islands.len());
+
+            islands.sort_by(|x,y| x.len().cmp(&y.len()));
 
             for i in islands.iter() {
-                println!("Islands: {:?}", i);
+                println!("Island count: {}", i.len());
                 println!(" ");
             }
         })
