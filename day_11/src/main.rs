@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use queues::*;
 #[allow(unused)]
 use std::{fs::File, io::{BufReader, BufRead }};
 
@@ -59,45 +58,76 @@ pub enum MapDirection {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct Point(usize, usize, Option<usize>);
+struct Point(usize, usize);
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct MapElement {
     point: Point,
     is_galaxy: bool,
+    is_jump: bool,
     id: Option<usize>
 }
 
 impl MapElement {
-    fn new(x: usize, y: usize, is_galaxy: bool, id: Option<usize>) -> Self {
+    fn new(x: usize, y: usize, is_galaxy: bool, is_jump: bool, id: Option<usize>) -> Self {
         Self {
-            point: Point(x, y, None),
+            point: Point(x, y),
             is_galaxy,
+            is_jump,
             id
         }
     }
 }
+
+const FACTOR: u64 = 1000000;
 
 fn main() {
     let file = File::open("input.txt").expect("Cannot open file");
     let reader = BufReader::new(file);
 
     let mut map = parse_file(reader);
-    expand_columns(&mut map);
+    let column_expansion_points = expand_columns(&mut map);
+    let row_expansion_points = expand_rows(&mut map);
 
     let map = convert_map(map);
+
+    for row in map.iter() {
+        for el in row.iter() {
+            print!("{}", if el.is_galaxy {'#'} else { if el.is_jump {'X'} else {'.'}})
+        }
+
+        println!();
+    }
 
     let pairs = create_pairs(&map);
 
     let sum = pairs.iter().fold(0, |acc, x| {
-        acc + shortest_path_len(x.0, x.1)
+        acc + shortest_path_len(x.0, x.1, &row_expansion_points, &column_expansion_points)
     });
 
     println!("Sum: {}", sum);
 }
 
-fn shortest_path_len(start: &MapElement, end: &MapElement) -> usize {
-    ((end.point.0 as isize - start.point.0 as isize).abs() + (end.point.1 as isize - start.point.1 as isize).abs()) as usize
+fn get_cross_count(bound: &Vec<usize>, left: usize, right: usize) -> u64 {
+    bound.iter().fold(0, |acc, b| {
+        acc + if (*b > left && *b < right) || (*b < left && *b > right)
+        { 1 } else { 0 }
+    })
+}
+
+fn shortest_path_len(start: &MapElement, end: &MapElement, row_exp: &Vec<usize>, col_exp: &Vec<usize>) -> u64 {
+    let x_cross = get_cross_count(row_exp, start.point.0, end.point.0);
+    let y_cross = get_cross_count(col_exp, start.point.1, end.point.1);
+
+   // println!("Start {:?}, End {:?}, crosses X {x_cross} times, crosses Y {y_cross} times", start.point, end.point);
+
+    let left = (end.point.0 as isize - start.point.0 as isize).abs();
+    let right = (end.point.1 as isize - start.point.1 as isize).abs();
+    
+    let x = left as u64 + (x_cross * FACTOR) + right as u64 + (y_cross * FACTOR);
+   // println!("Length is {x}");
+
+    x - (y_cross + x_cross)
 }
 
 fn create_pairs(map: &Vec<Vec<MapElement>>) -> HashSet<(&MapElement, &MapElement)> {
@@ -132,10 +162,10 @@ fn convert_map(map: Vec<Vec<char>>) -> Vec<Vec<MapElement>> {
         
         for (j, ch) in row.iter().enumerate() {
             let is_galaxy = *ch == '#';
-
+            let is_jump = *ch == 'X';
             if is_galaxy { id += 1; }
 
-            new_row.push(MapElement::new(i, j, is_galaxy, Some(id)))
+            new_row.push(MapElement::new(i, j, is_galaxy, is_jump, Some(id)))
         }
 
         new_map.push(new_row);
@@ -144,29 +174,35 @@ fn convert_map(map: Vec<Vec<char>>) -> Vec<Vec<MapElement>> {
     new_map
 }
 
-fn expand_columns(map: &mut Vec<Vec<char>>) {
-    let mut width = map[0].len();
+fn expand_rows(map: &mut Vec<Vec<char>>) -> Vec<usize> {
+    let mut expansion_points = vec![];
 
-    let mut skip = false;
-    let mut i = 0;
-
-    while i < width {
-        if skip {
-            skip = false;
-            i += 1;
-            continue;
-        }
-
-        if map.iter().map(|v| v[i]).all(|c| c == '.') {
-            for row in map.iter_mut() {
-                row.insert(i, '.');
-                width = row.len();
-                skip = true;
+    for (i, row) in map.iter_mut().enumerate() {
+        if !row.iter().any(|x| *x == '#') {
+            for ch in row.iter_mut() {
+                *ch = 'X';
             }
+            expansion_points.push(i);
         }
-
-        i += 1;
     }
+
+    expansion_points
+}
+
+fn expand_columns(map: &mut Vec<Vec<char>>) -> Vec<usize> {
+    let mut expansion_points = vec![];
+
+    for i in 0..map[0].len() {
+        if map.iter().map(|v| v[i]).all(|c| c == '.') {
+            for el in map.iter_mut().map(|v| &mut v[i]) {
+                *el = 'X';
+            }
+
+            expansion_points.push(i);
+        }
+    }
+
+    expansion_points
 }
 
 fn parse_file(reader: BufReader<File>) -> Vec<Vec<char>> {
@@ -180,10 +216,6 @@ fn parse_file(reader: BufReader<File>) -> Vec<Vec<char>> {
         }
 
         map.push(new_line.clone());
-
-        if line.chars().all(|c| c == '.') {
-            map.push(new_line);
-        }
     }
 
     map
